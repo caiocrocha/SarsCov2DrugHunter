@@ -264,7 +264,7 @@ A compound will be considered active if the **`Selected Property > 50`**. This v
 
         if not st.checkbox('Hide graph'):
             fig, ax = pyplot.subplots(figsize=(15,5))
-            sns.histplot(data=dist, x='f_inhibition_at_50_uM', hue='activity', ax=ax)
+            sns.histplot(data=dist, x=self.activity_label, hue='activity', ax=ax)
             pyplot.ylabel('Number of compounds')
             pyplot.title('Distribution of the data')
             st.pyplot(fig)
