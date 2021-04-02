@@ -1,5 +1,6 @@
-# Usar postera inteiro como conjunto de treinamento (opcao, elimina teste)
-# Upload dados de treinamento, teste (generalizacao)
+#!/usr/bin/env python3
+# coding: utf-8
+# Config
 
 import os
 import numpy as np
@@ -7,9 +8,6 @@ import pandas as pd
 import seaborn as sns
 import streamlit as st
 from matplotlib import pyplot
-
-# from rdkit import Chem
-# from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 
 # Program
 class App():
@@ -96,15 +94,15 @@ interactive experience with options that allow more control over the constructio
                         st.caching.clear_cache()
                         st.sidebar.success('Directory successfully cleared!')
                     except OSError as e:
-                        st.error('Could not remove folder. Error traceback: ')
-                        st.error(str(e))
+                        st.error(f'''Could not remove folder.     
+Detailed error: {str(e)}''')
             
         if not os.path.isdir('.metadata'):
             try:
                 os.mkdir('.metadata')
             except OSError as e:
-                st.error('Could not create **.metadata** directory. Error traceback: ')
-                st.error(str(e))
+                st.error(f'''Could not create **.metadata** directory.     
+Detailed error: {str(e)}''')
                 self.copyright_note()
                 st.stop()
     
@@ -119,8 +117,8 @@ interactive experience with options that allow more control over the constructio
             try:
                 os.mkdir('.metadata/csv')
             except OSError as e:
-                st.error('Could not create ".metadata/csv". Error traceback: ')
-                st.error(str(e))
+                st.error(f'''Could not create ".metadata/csv".     
+Detailed error: {str(e)}''')
 
         data.to_csv('.metadata/csv/activity.csv', index=False)
         st.text('Data saved to ".metadata/csv/activity.csv"')
@@ -141,40 +139,43 @@ interactive experience with options that allow more control over the constructio
             calc = Calculator(descriptors, ignore_3D=True)
             # Get molecules from SMILES
             mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
+
             df = calc.pandas(mols)
-            st.write(df.head())
             df.insert(0, column='CID', value=data['CID'].tolist())
             df.to_csv(f'{csv}.gz', index=False, compression='gzip')
     
-    # @staticmethod
-    # def write_rdkit_descriptors(smiles, csv, data):
-    #     if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
-    #         # Get molecules from SMILES
-    #         mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
+    @staticmethod
+    def write_rdkit_descriptors(smiles, csv, data):
+        from rdkit import Chem
+        from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 
-    #         # Get list of descriptors
-    #         descriptors_list = [a[0] for a in Chem.Descriptors.descList]
+        if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
+            # Get molecules from SMILES
+            mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
 
-    #         calculator = MolecularDescriptorCalculator(descriptors_list)
-    #         calc_descriptors = [calculator.CalcDescriptors(m) for m in mols]
+            # Get list of descriptors
+            descriptors_list = [a[0] for a in Chem.Descriptors.descList]
+
+            calculator = MolecularDescriptorCalculator(descriptors_list)
+            calc_descriptors = [calculator.CalcDescriptors(m) for m in mols]
             
-    #         descriptors = pd.DataFrame(calc_descriptors, columns=descriptors_list)
-    #         descriptors.insert(0, column='CID', value=data['CID'].tolist())
-    #         descriptors.to_csv(f'{csv}.gz', index=False, compression='gzip')
+            df = pd.DataFrame(calc_descriptors, columns=descriptors_list)
+            df.insert(0, column='CID', value=data['CID'].tolist())
+            df.to_csv(f'{csv}.gz', index=False, compression='gzip')
 
     def calculate_descriptors(self):
-        st.markdown("## **Descriptors**")
+        st.markdown("## **Molecular descriptors**")
         if st.checkbox('Calculate Mordred descriptors (slower, more options)'):
             self.write_mordred_descriptors('.metadata/smiles.smi', '.metadata/csv/mordred.csv', self.data)
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
             self.calc = 'Mordred' # control variable
-        # elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
-        #     self.write_rdkit_descriptors('.metadata/smiles.smi', '.metadata/csv/rdkit.csv', self.data)
-        #     # Read RDKit descriptors
-        #     descriptors = pd.read_csv('.metadata/csv/rdkit.csv.gz', compression='gzip')
-        #     self.calc = 'RDKit' # control variable
+        elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
+            self.write_rdkit_descriptors('.metadata/smiles.smi', '.metadata/csv/rdkit.csv', self.data)
+            # Read RDKit descriptors
+            descriptors = pd.read_csv('.metadata/csv/rdkit.csv.gz', compression='gzip')
+            self.calc = 'RDKit' # control variable
         else:
             file = st.file_uploader('or Upload descriptors file')
             show_file = st.empty()
@@ -186,13 +187,20 @@ interactive experience with options that allow more control over the constructio
             else:
                 descriptors = pd.read_csv(file)
                 if not 'CID' in descriptors.columns:
-                    st.error('Compounds must be identified by "CID"')
+                    st.error('Compounds must be identified by "CID".')
                     self.copyright_note()
                     st.stop()
             file.close()
             self.calc = 'External file' # control variable
         
-        st.markdown(f'#### Molecular descriptors (_{self.calc}_)')
+        # Keep only numeric columns
+        numeric = descriptors.select_dtypes(include=[int,float]).columns.tolist()
+        descriptors = descriptors[['CID'] + numeric]
+        # Drop NaN and zero-only columns
+        descriptors.dropna(axis=1, inplace=True)
+        descriptors = descriptors.loc[:,(descriptors != 0).any(axis=0)]
+
+        st.markdown(f'#### Calculated descriptors (_{self.calc}_)')
         st.dataframe(descriptors.head())
 
         self.descriptors_cols = descriptors.columns.tolist()[1:]
@@ -211,9 +219,19 @@ interactive experience with options that allow more control over the constructio
         
     def show_properties(self):
         # List numeric columns
-        data_numeric = self.data.select_dtypes(include=[int,float]).columns.tolist()
-        if 'activity' in data_numeric:
-            data_numeric.remove('activity')
+        numeric = self.data.select_dtypes(include=[int,float]).columns.tolist()
+        if 'activity' in numeric:
+            numeric.remove('activity')
+        
+        activity_label = 'f_inhibition_at_50_uM'
+        if len(numeric) > 0:
+            # Move activity_label to beginning of list
+            if numeric[0] != activity_label:
+                numeric.remove(activity_label)
+                numeric.insert(0, activity_label)
+        else:
+            st.error('Activity data has no numeric columns.')
+            st.stop()
 
         ########################
         # Explore data
@@ -221,16 +239,12 @@ interactive experience with options that allow more control over the constructio
 
         st.sidebar.header('Activity data')
         # Create a sidebar dropdown to select property to show.
-        activity_label = st.sidebar.selectbox(label="Filter by: *",
-                                        options=([None, *data_numeric]))
-        st.sidebar.markdown('''\* _The classifier will be trained according to the selected property. 
-If no property is selected, then **f_inhibition_at_50_uM** will be used for labeling the compounds.    
-A compound will be considered active if the **`Selected Property > 50`**. This value can be adjusted with the slider below._''')
-        
-        if activity_label is None:
-            activity_label = 'f_inhibition_at_50_uM'
-
+        activity_label = st.sidebar.selectbox(label="Filter by: *", options=(numeric))
         self.activity_label = activity_label
+
+        st.sidebar.markdown('''\* _The classifier will be trained according to the selected property. 
+By default, **f_inhibition_at_50_uM** is used for labeling the compounds.    
+A compound is considered active if **`Selected Property > 50`**. This value can be adjusted with the slider below._''')
 
         # Create a sidebar slider to filter property
         ## Step 1 - Pick min & max for picked property 
@@ -416,8 +430,7 @@ variance. E.g. the default value corresponds to an explained variance of {defaul
             g = sns.FacetGrid(data=tmp, col='variable', col_wrap=4, sharey=False, sharex=False)
             g.map(sns.histplot, 'value')
             if len(descriptors_list) > 11:
-                st.warning("""Unfortunately, we can't plot all selected descriptors    
-Showing the distribution plots of the top 12 features""")
+                st.warning("Unfortunately, we can't plot all selected descriptors. Showing the distribution plots of the top 12 features.")
             st.pyplot(g)
             
     @staticmethod
@@ -510,8 +523,8 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             self.pipeline = pickle.load(file)
             file.close()
         except OSError as e:
-            st.error(f"Oops! It seems the model hasn't been trained yet. Error traceback: ")
-            st.error(str(e))
+            st.error(f"""Oops! It seems the model hasn't been trained yet.     
+Detailed error: {str(e)}""")
             self.copyright_note()
             st.stop()
 
@@ -522,8 +535,8 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             self.test_proba = self.pipeline.predict_proba(self.X_test)[:,1]
             self.train_proba = self.pipeline.predict_proba(self.X_train)[:,1]
         except ValueError as e:
-            st.error('Expected features do not match the given features. Please train the model again. Error traceback: ')
-            st.error(str(e))
+            st.error(f'''Expected features do not match the given features, please train the model again.     
+Detailed error: {str(e)}''')
             self.copyright_note()
             st.stop()
 
@@ -549,6 +562,8 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         if st.checkbox('Show ROC of the previous models'):
             _, _, filenames = next(os.walk('.metadata/roc'))
             filenames.remove(f'{model_name}.png')
+            if not filenames:
+                st.warning('No model to compare! You can test other classifiers if you wish to compare their performances.')
             for clf in filenames:
                 st.image(f'.metadata/roc/{clf}')
             
@@ -582,9 +597,10 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             show_file.info("Please upload a file of type: .csv")
             self.copyright_note()
             st.stop()
-        else:
-            self.new_data = pd.read_csv(file)
-            st.write(self.new_data.head())
+        
+        self.new_data = pd.read_csv(file)
+        st.markdown('#### New compounds')
+        st.write(self.new_data.head())
         file.close()
         
         self.write_smiles(self.new_data, '.metadata/smiles2.smi')
@@ -593,10 +609,10 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred2.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
-        # elif self.calc == 'RDKit':
-        #    self.write_rdkit_descriptors('.metadata/smiles2.smi', '.metadata/csv/rdkit2.csv', self.new_data)
-        #    # Read RDKit descriptors
-        #    descriptors = pd.read_csv('.metadata/csv/rdkit2.csv.gz', compression='gzip')
+        elif self.calc == 'RDKit':
+           self.write_rdkit_descriptors('.metadata/smiles2.smi', '.metadata/csv/rdkit2.csv', self.new_data)
+           # Read RDKit descriptors
+           descriptors = pd.read_csv('.metadata/csv/rdkit2.csv.gz', compression='gzip')
         else:
             file = st.file_uploader('Upload the descriptors file for the new compounds')
             show_file = st.empty()
@@ -608,15 +624,15 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             else:
                 descriptors = pd.read_csv(file)
                 if not 'CID' in descriptors.columns:
-                    st.error('Compounds must be identified by "CID"')
+                    st.error('Compounds must be identified by "CID".')
                     self.copyright_note()
                     st.stop()
             file.close()
             try:
                 tmp = pd.merge(self.new_data, descriptors[['CID'] + self.descriptors_cols], on=['CID'])
             except KeyError as e:
-                st.error('''Expected features do not match the given features. 
-Please make sure that the input file contains the same descriptors used for training the model.''')
+                st.error('''Expected features do not match the given features.     
+Please make sure the input file contains the same descriptors used for training the model.''')
                 self.copyright_note()
                 st.stop()
         
@@ -660,11 +676,11 @@ Please make sure that the input file contains the same descriptors used for trai
         ''')
 
         st.write('')
-        st.write('Top compounds:')
+        st.markdown('#### Top compounds')
         st.write(predictions.reset_index(drop=True).head())
 
         predictions.to_csv('predictions.csv', index=False)
-        st.write('Predictions saved to "predictions.csv".')
+        st.success('Predictions saved to "predictions.csv".')
 
     @staticmethod
     def copyright_note():
@@ -673,10 +689,7 @@ Please make sure that the input file contains the same descriptors used for trai
 
 
 def main():
-    # """Run this function to display the Streamlit app"""
-    # st.info(__doc__)
-
-    # Config
+    # Create App
     DATA_URL = ('https://covid.postera.ai/covid/activity_data.csv')
     app = App(DATA_URL)
 
@@ -689,7 +702,7 @@ def main():
         model_name, model = app.select_model()
         if st.checkbox('Train model'):
             app.mlpipeline(model_name, model)
-            st.markdown(f'_Model saved to pickle/{model_name}.pickle_')
+            st.success(f'Model saved to "pickle/{model_name}.pickle".')
         
         app.train_test_scores(model_name)
         app.upload_new_compounds()
@@ -698,4 +711,4 @@ def main():
     # Copyright footnote
     app.copyright_note()
 
-if __name__== '__main__': main()
+if __name__ == '__main__': main()
