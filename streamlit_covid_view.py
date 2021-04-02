@@ -8,8 +8,8 @@ import seaborn as sns
 import streamlit as st
 from matplotlib import pyplot
 
-from rdkit import Chem
-from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
+# from rdkit import Chem
+# from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 
 # Program
 class App():
@@ -145,21 +145,21 @@ interactive experience with options that allow more control over the constructio
         if os.path.isfile(csv):
             subprocess.run(f'gzip {csv}', shell=True)
     
-    @staticmethod
-    def write_rdkit_descriptors(smiles, csv, data):
-        if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
-            # Get molecules from SMILES
-            mols = [Chem.MolFromSmiles(i) for i in data['SMILES']]
+    # @staticmethod
+    # def write_rdkit_descriptors(smiles, csv, data):
+    #     if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
+    #         # Get molecules from SMILES
+    #         mols = [Chem.MolFromSmiles(i) for i in data['SMILES']]
 
-            # Get list of descriptors
-            descriptors_list = [a[0] for a in Chem.Descriptors.descList]
+    #         # Get list of descriptors
+    #         descriptors_list = [a[0] for a in Chem.Descriptors.descList]
 
-            calculator = MolecularDescriptorCalculator(descriptors_list)
-            calc_descriptors = [calculator.CalcDescriptors(m) for m in mols]
+    #         calculator = MolecularDescriptorCalculator(descriptors_list)
+    #         calc_descriptors = [calculator.CalcDescriptors(m) for m in mols]
             
-            descriptors = pd.DataFrame(calc_descriptors, columns=descriptors_list)
-            descriptors.insert(0, column='CID', value=data['CID'].tolist())
-            descriptors.to_csv(f'{csv}.gz', index=False, compression='gzip')
+    #         descriptors = pd.DataFrame(calc_descriptors, columns=descriptors_list)
+    #         descriptors.insert(0, column='CID', value=data['CID'].tolist())
+    #         descriptors.to_csv(f'{csv}.gz', index=False, compression='gzip')
 
     def calculate_descriptors(self):
         st.markdown("## **Descriptors**")
@@ -169,11 +169,11 @@ interactive experience with options that allow more control over the constructio
             descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
             self.calc = 'Mordred' # control variable
-        elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
-            self.write_rdkit_descriptors('.metadata/smiles.smi', '.metadata/csv/rdkit.csv', self.data)
-            # Read RDKit descriptors
-            descriptors = pd.read_csv('.metadata/csv/rdkit.csv.gz', compression='gzip')
-            self.calc = 'RDKit' # control variable
+        # elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
+        #     self.write_rdkit_descriptors('.metadata/smiles.smi', '.metadata/csv/rdkit.csv', self.data)
+        #     # Read RDKit descriptors
+        #     descriptors = pd.read_csv('.metadata/csv/rdkit.csv.gz', compression='gzip')
+        #     self.calc = 'RDKit' # control variable
         else:
             file = st.file_uploader('or Upload descriptors file')
             show_file = st.empty()
@@ -592,10 +592,10 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred2.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
-        elif self.calc == 'RDKit':
-            self.write_rdkit_descriptors('.metadata/smiles2.smi', '.metadata/csv/rdkit2.csv', self.new_data)
-            # Read RDKit descriptors
-            descriptors = pd.read_csv('.metadata/csv/rdkit2.csv.gz', compression='gzip')
+        # elif self.calc == 'RDKit':
+        #    self.write_rdkit_descriptors('.metadata/smiles2.smi', '.metadata/csv/rdkit2.csv', self.new_data)
+        #    # Read RDKit descriptors
+        #    descriptors = pd.read_csv('.metadata/csv/rdkit2.csv.gz', compression='gzip')
         else:
             file = st.file_uploader('Upload the descriptors file for the new compounds')
             show_file = st.empty()
