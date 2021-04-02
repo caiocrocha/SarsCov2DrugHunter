@@ -133,23 +133,24 @@ interactive experience with options that allow more control over the constructio
         data[['SMILES','CID']].to_csv(smiles, sep='\t', header=None, index=False)
 
     @staticmethod
-    def write_mordred_descriptors(smiles, csv):
-        import subprocess
-        # Run MORDRED with smiles file.
-        # Could not make mordred work with rdkit.
-        # There is a lot of (unsolved) confusion with library compatibility
-        # Let's rely on the manual way
+    def write_mordred_descriptors(smiles, csv, data):
         if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
-            subprocess.run(f'python -m mordred {smiles} > {csv}', shell=True)
+            from rdkit import Chem
+            from mordred import Calculator, descriptors
 
-        if os.path.isfile(csv):
-            subprocess.run(f'gzip {csv}', shell=True)
+            calc = Calculator(descriptors, ignore_3D=True)
+            # Get molecules from SMILES
+            mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
+            df = calc.pandas(mols)
+            st.write(df.head())
+            df.insert(0, column='CID', value=data['CID'].tolist())
+            df.to_csv(f'{csv}.gz', index=False, compression='gzip')
     
     # @staticmethod
     # def write_rdkit_descriptors(smiles, csv, data):
     #     if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
     #         # Get molecules from SMILES
-    #         mols = [Chem.MolFromSmiles(i) for i in data['SMILES']]
+    #         mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
 
     #         # Get list of descriptors
     #         descriptors_list = [a[0] for a in Chem.Descriptors.descList]
@@ -164,7 +165,7 @@ interactive experience with options that allow more control over the constructio
     def calculate_descriptors(self):
         st.markdown("## **Descriptors**")
         if st.checkbox('Calculate Mordred descriptors (slower, more options)'):
-            self.write_mordred_descriptors('.metadata/smiles.smi', '.metadata/csv/mordred.csv')
+            self.write_mordred_descriptors('.metadata/smiles.smi', '.metadata/csv/mordred.csv', self.data)
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
@@ -588,7 +589,7 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         
         self.write_smiles(self.new_data, '.metadata/smiles2.smi')
         if self.calc == 'Mordred':
-            self.write_mordred_descriptors('.metadata/smiles2.smi', '.metadata/csv/mordred2.csv')
+            self.write_mordred_descriptors('.metadata/smiles2.smi', '.metadata/csv/mordred2.csv', self.new_data)
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred2.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
