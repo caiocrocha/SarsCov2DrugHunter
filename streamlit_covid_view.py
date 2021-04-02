@@ -105,6 +105,7 @@ interactive experience with options that allow more control over the constructio
             except OSError as e:
                 st.error('Could not create **.metadata** directory. Error traceback: ')
                 st.error(str(e))
+                self.copyright_note()
                 st.stop()
     
     @staticmethod
@@ -133,15 +134,16 @@ interactive experience with options that allow more control over the constructio
 
     @staticmethod
     def write_mordred_descriptors(smiles, csv):
+        import subprocess
         # Run MORDRED with smiles file.
         # Could not make mordred work with rdkit.
         # There is a lot of (unsolved) confusion with library compatibility
         # Let's rely on the manual way
         if os.path.isfile(smiles) and not os.path.isfile(f'{csv}.gz'):
-            os.system(f'python -m mordred {smiles} > {csv}')
+            subprocess.run(f'python -m mordred {smiles} > {csv}', shell=True)
 
         if os.path.isfile(csv):
-            os.system(f'gzip {csv}')
+            subprocess.run(f'gzip {csv}', shell=True)
     
     @staticmethod
     def write_rdkit_descriptors(smiles, csv, data):
@@ -161,32 +163,35 @@ interactive experience with options that allow more control over the constructio
 
     def calculate_descriptors(self):
         st.markdown("## **Descriptors**")
-        if st.checkbox('Calculate Mordred descriptors'):
+        if st.checkbox('Calculate Mordred descriptors (slower, more options)'):
             self.write_mordred_descriptors('.metadata/smiles.smi', '.metadata/csv/mordred.csv')
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
-            self.calc = 'mordred' # control variable
-        elif st.checkbox('Calculate RDKit descriptors'):
+            self.calc = 'Mordred' # control variable
+        elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
             self.write_rdkit_descriptors('.metadata/smiles.smi', '.metadata/csv/rdkit.csv', self.data)
             # Read RDKit descriptors
             descriptors = pd.read_csv('.metadata/csv/rdkit.csv.gz', compression='gzip')
-            self.calc = 'rdkit' # control variable
+            self.calc = 'RDKit' # control variable
         else:
             file = st.file_uploader('or Upload descriptors file')
             show_file = st.empty()
 
             if not file:
                 show_file.info("Please upload a file of type: .csv")
+                self.copyright_note()
                 st.stop()
             else:
                 descriptors = pd.read_csv(file)
                 if not 'CID' in descriptors.columns:
                     st.error('Compounds must be identified by "CID"')
+                    self.copyright_note()
                     st.stop()
             file.close()
-            self.calc = 'other' # control variable
+            self.calc = 'External file' # control variable
         
+        st.markdown(f'#### Molecular descriptors (_{self.calc}_)')
         st.dataframe(descriptors.head())
 
         self.descriptors_cols = descriptors.columns.tolist()[1:]
@@ -197,6 +202,7 @@ interactive experience with options that allow more control over the constructio
         st.write("You have selected", len(selected), "features")
 
         if not selected:
+            self.copyright_note()
             st.stop()
         
         descriptors = descriptors[['CID'] + selected]
@@ -505,6 +511,7 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         except OSError as e:
             st.error(f"Oops! It seems the model hasn't been trained yet. Error traceback: ")
             st.error(str(e))
+            self.copyright_note()
             st.stop()
 
         from sklearn.metrics import roc_curve, auc
@@ -516,6 +523,7 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         except ValueError as e:
             st.error('Expected features do not match the given features. Please train the model again. Error traceback: ')
             st.error(str(e))
+            self.copyright_note()
             st.stop()
 
         fpr, tpr, _ = roc_curve(self.y_test, self.test_proba)
@@ -571,6 +579,7 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
 
         if not file:
             show_file.info("Please upload a file of type: .csv")
+            self.copyright_note()
             st.stop()
         else:
             self.new_data = pd.read_csv(file)
@@ -578,12 +587,12 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         file.close()
         
         self.write_smiles(self.new_data, '.metadata/smiles2.smi')
-        if self.calc == 'mordred':
+        if self.calc == 'Mordred':
             self.write_mordred_descriptors('.metadata/smiles2.smi', '.metadata/csv/mordred2.csv')
             # Read MORDRED descriptors
             descriptors = pd.read_csv('.metadata/csv/mordred2.csv.gz', compression='gzip')
             descriptors.rename(columns={'name':'CID'}, inplace=True)
-        elif self.calc == 'rdkit':
+        elif self.calc == 'RDKit':
             self.write_rdkit_descriptors('.metadata/smiles2.smi', '.metadata/csv/rdkit2.csv', self.new_data)
             # Read RDKit descriptors
             descriptors = pd.read_csv('.metadata/csv/rdkit2.csv.gz', compression='gzip')
@@ -593,11 +602,13 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
 
             if not file:
                 show_file.info("Please upload a file of type: .csv")
+                self.copyright_note()
                 st.stop()
             else:
                 descriptors = pd.read_csv(file)
                 if not 'CID' in descriptors.columns:
                     st.error('Compounds must be identified by "CID"')
+                    self.copyright_note()
                     st.stop()
             file.close()
             try:
@@ -605,6 +616,7 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
             except KeyError as e:
                 st.error('''Expected features do not match the given features. 
 Please make sure that the input file contains the same descriptors used for training the model.''')
+                self.copyright_note()
                 st.stop()
         
         descriptors.dropna(subset=self.descriptors_cols, inplace=True)
@@ -657,7 +669,6 @@ Please make sure that the input file contains the same descriptors used for trai
     def copyright_note():
         st.markdown('----------------------------------------------------')
         st.markdown('Copyright (c) 2021 CAIO C. ROCHA, DIEGO E. B. GOMES')
-        st.markdown('Definir/atualizar copyright quando estiver pronto')
 
 
 def main():
