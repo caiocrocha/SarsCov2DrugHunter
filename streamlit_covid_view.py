@@ -68,7 +68,7 @@ class App():
 A straightforward App that combines experimental activity data, molecular descriptors and machine 
 learning for classifying potential drug candidates against the SARS-CoV-2 Main Protease (MPro).     
 
-We use the **COVID Moonshot**, a public collaborative initiatiave by **PostEra**, as the dataset of 
+We use the **COVID Moonshot**, a public collaborative initiatiave by [PostEra](https://postera.ai/), as the dataset of 
 compounds containing the experimental activity data for the machine learning classifiers. We'd like 
 to express our sincere thanks to PostEra, without which this work wouldn't have been possible.    
 
@@ -76,7 +76,7 @@ The molecular descriptors can be automatically calculated with Mordred or RDKit,
 provide a CSV file of molecular descriptors calculated with an external program of your preference.     
 
 This main window is going to guide you through the App, while the sidebar to the left offers you an extra 
-interactive experience with options that allow more control over the construction of the Pipeline. **Let's get started!**
+interactive experience with options that allow more control over the Pipeline. **Let 's get started!**
 ''')
 
     @staticmethod
@@ -168,7 +168,7 @@ Detailed error: {str(e)}''')
         if st.checkbox('Calculate Mordred descriptors (slower, more options)'):
             self.write_mordred_descriptors('.metadata/smiles.smi', '.metadata/csv/mordred.csv', self.data)
             # Read MORDRED descriptors
-            descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip')
+            descriptors = pd.read_csv('.metadata/csv/mordred.csv.gz', compression='gzip', low_memory=False)
             descriptors.rename(columns={'name':'CID'}, inplace=True)
             self.calc = 'Mordred' # control variable
         elif st.checkbox('Calculate RDKit descriptors (faster, fewer options)'):
@@ -324,12 +324,6 @@ A compound is considered active if **`Selected Property > 50`**. This value can 
         corr = X.corr()
         st.write(corr.head(5))
 
-        if st.checkbox('Show entire DataFrame'):
-            if len(corr) <= 100:
-                st.write(corr)
-            else:
-                st.error("Sorry, large DataFrames can't be displayed!")
-
         if st.checkbox('Show correlation HeatMap'):
             if len(corr) <= 100:
                 fig, ax = pyplot.subplots(figsize=(10,10))
@@ -354,6 +348,7 @@ A compound is considered active if **`Selected Property > 50`**. This value can 
             st.write('Removed features: ')
             st.write(to_drop)
             self.descriptors.drop(to_drop, axis=1, inplace=True)
+            self.descriptors_cols = self.descriptors.columns.tolist()[1:]
             self.merged_data.drop(to_drop, axis=1, inplace=True)
 
     def calculate_pca(self):
