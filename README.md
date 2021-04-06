@@ -1,4 +1,4 @@
-# SARS-CoV-2 <img src="logo/Logo_small.png" alt="Logo_small.png" width="24"/>
+# SARS-CoV-2 <img src="media/Logo_small.png" alt="Logo_small.png" width="24"/>
 ## Machine Learning Drug Hunter
 A straightforward App that combines experimental activity data, molecular descriptors and machine 
 learning for classifying potential drug candidates against the SARS-CoV-2 Main Protease (MPro). 

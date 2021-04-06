@@ -15,6 +15,7 @@ class App():
         # Show logo, title and description
         self.show_logo()
         self.show_description()
+        self.show_video()
         # Check .metadata directory
         self.metadata_dir()
 
@@ -58,7 +59,7 @@ class App():
     # Functions
     @staticmethod
     def show_logo():
-        st.sidebar.image('logo/Logo_medium.png')
+        st.sidebar.image('media/Logo_medium.png')
 
     @staticmethod
     def show_description():
@@ -78,6 +79,11 @@ provide a CSV file of molecular descriptors calculated with an external program 
 This main window is going to guide you through the App, while the sidebar to the left offers you an extra 
 interactive experience with options that allow more control over the Pipeline. **Let 's get started!**
 ''')
+
+    @staticmethod
+    def show_video():
+        st.markdown("_If you want a quick tour of the App, here's a short video for you!_")
+        st.video('media/streamlit_app.mp4')
 
     @staticmethod
     def metadata_dir():
@@ -140,9 +146,11 @@ Detailed error: {str(e)}''')
             # Get molecules from SMILES
             mols = [Chem.MolFromSmiles(smi) for smi in data['SMILES']]
 
-            df = calc.pandas(mols)
+            msg = st.text('Sit back! This may take a while...')
+            df = calc.pandas(mols, quiet=False, nproc=1)
             df.insert(0, column='CID', value=data['CID'].tolist())
             df.to_csv(f'{csv}.gz', index=False, compression='gzip')
+            msg.text('')
     
     @staticmethod
     def write_rdkit_descriptors(smiles, csv, data):
@@ -156,12 +164,14 @@ Detailed error: {str(e)}''')
             # Get list of descriptors
             descriptors_list = [a[0] for a in Chem.Descriptors.descList]
 
+            msg = st.text('Sit back! This may take a while...')
             calculator = MolecularDescriptorCalculator(descriptors_list)
             calc_descriptors = [calculator.CalcDescriptors(m) for m in mols]
             
             df = pd.DataFrame(calc_descriptors, columns=descriptors_list)
             df.insert(0, column='CID', value=data['CID'].tolist())
             df.to_csv(f'{csv}.gz', index=False, compression='gzip')
+            msg.text('')
 
     def calculate_descriptors(self):
         st.markdown("## **Molecular descriptors**")
