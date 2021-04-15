@@ -118,7 +118,12 @@ Detailed error: {str(e)}''')
         # Verbose
         st.text('Fetching the data from PostEra...')
         st.markdown('Loading activity data...')
-        data = pd.read_csv(DATA_URL)
+        try:
+            data = pd.read_csv(DATA_URL)
+        except Exception as e:
+            st.warning('Could not read dataset from remote server. Using local version instead.')
+            data = pd.read_csv('activity_data.csv')
+        
         if not os.path.isdir('.metadata/csv'):
             try:
                 os.mkdir('.metadata/csv')
@@ -126,8 +131,8 @@ Detailed error: {str(e)}''')
                 st.error(f'''Could not create ".metadata/csv".     
 Detailed error: {str(e)}''')
 
-        data.to_csv('.metadata/csv/activity.csv', index=False)
-        st.text('Data saved to ".metadata/csv/activity.csv"')
+        data.to_csv('activity_data.csv', index=False)
+        st.text('Data saved to "activity_data.csv"')
         return data
     
     @staticmethod
@@ -273,14 +278,10 @@ A compound is considered active if **`Selected Property > 50`**. This value can 
             float(min_filter), float(max_filter))]
         mean_filter = float(df_filtered[activity_label].mean())
 
-        st.markdown(f'''
-        | Property | Min | Max | Mean |
-        | --- | --- | --- | --- |
-        | {activity_label} | {min_filter:2g} | {max_filter:2g} | {mean_filter:2g} |
+        table = pd.DataFrame({'Property': [activity_label], 'Min': [min_filter], 'Max': [max_filter], 'Mean': [mean_filter]})
+        table.index = ['Value']
+        st.table(table)
 
-        ''')
-
-        st.text('')
         if st.checkbox('Show downloaded data'):
             st.dataframe(self.downloaded_data)
 
@@ -312,11 +313,9 @@ A compound is considered active if **`Selected Property > 50`**. This value can 
         actives    = self.data.query(f'{self.activity_label} > {threshold}')
         inactives  = self.data.query(f'{self.activity_label} <= {threshold}')
 
-        st.markdown(f'''
-        |Compounds|Active|Inactive|
-        |---|---|---|
-        |{len(self.data)}|{len(actives)}|{len(inactives)}|
-        ''')
+        table = pd.DataFrame({'Compounds': [len(self.data)], 'Active': len(actives), 'Inactive': len(inactives)})
+        table.index = ['Total']
+        st.table(table)
         
     def merge_dataset(self):
         # Merge the dataset to include activity data and descriptors.
@@ -490,7 +489,6 @@ The constructed model is a **Pipeline** of _**`ColumnTransformer + SMOTE`**_, wh
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
                                             X, y, test_size=0.2, random_state=27)
 
-    @st.cache(suppress_st_warning=True)
     def mlpipeline(self, model_name, model):
         from sklearn.compose import ColumnTransformer
         from sklearn.preprocessing import StandardScaler
@@ -561,6 +559,9 @@ Detailed error: {str(e)}''')
         if not os.path.isdir('.metadata/roc'):
             os.makedirs('.metadata/roc')
         pyplot.savefig(f'.metadata/roc/{model_name}.png', dpi=200)
+
+        st.markdown('_* The dataset split into training and test sets is done randomly._')
+        st.markdown('_** The training set accounts for 80% of the original dataset, and the test set accounts for the remaining 20%._')
         st.markdown('### Receiver Operating Characteristic')
         st.pyplot(fig)
 
@@ -585,6 +586,7 @@ Detailed error: {str(e)}''')
         if os.path.isfile('.metadata/scores.csv'):
             scores_data = pd.concat([scores_data, pd.read_csv('.metadata/scores.csv')])
             scores_data.drop_duplicates(subset=['Classifier'], inplace=True, keep='last')
+            scores_data.reset_index(drop=True, inplace=True)
             
         scores_data.to_csv('.metadata/scores.csv', index=False)
         st.write('### Scoring metrics')
@@ -604,6 +606,15 @@ Detailed error: {str(e)}''')
             st.stop()
         
         self.new_data = pd.read_csv(file)
+        columns = self.new_data.columns.tolist()
+        if 'SMILES' in columns and 'CID' in columns:
+            self.new_data = self.new_data[columns]
+        else:
+            if 'SMILES' not in columns:
+                st.error('Input file missing "SMILES"')
+            else:
+                st.error('Input file missing "CID"')
+        
         st.markdown('#### New compounds')
         st.write(self.new_data.head())
         file.close()
