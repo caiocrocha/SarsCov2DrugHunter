@@ -109,11 +109,11 @@ Detailed error: {str(e)}''')
             except OSError as e:
                 st.error(f'''Could not create **.metadata** directory.     
 Detailed error: {str(e)}''')
-                self.copyright_note()
+                App.copyright_note()
                 st.stop()
     
     @staticmethod
-    @st.cache(suppress_st_warning=True, allow_output_mutation=True)
+    @st.cache_data()
     def download_activity(DATA_URL):
         # Verbose
         st.text('Fetching the data from PostEra...')
@@ -136,7 +136,7 @@ Detailed error: {str(e)}''')
         return data
     
     @staticmethod
-    @st.cache(suppress_st_warning=True, allow_output_mutation=True)
+    @st.cache_data()
     def write_smiles(data, smiles):
         # Write smiles to disk
         data[['SMILES','CID']].to_csv(smiles, sep='\t', header=None, index=False)
@@ -238,7 +238,7 @@ Detailed error: {str(e)}''')
         if 'activity' in numeric:
             numeric.remove('activity')
         
-        activity_label = 'f_inhibition_at_50_uM'
+        activity_label = 'f_avg_IC50'
         if len(numeric) > 0:
             # Move activity_label to beginning of list
             if numeric[0] != activity_label:
@@ -258,7 +258,7 @@ Detailed error: {str(e)}''')
         self.activity_label = activity_label
 
         st.sidebar.markdown('''\* _The classifier will be trained according to the selected property. 
-By default, **f_inhibition_at_50_uM** is used for labeling the compounds.    
+By default, **f_avg_IC50** is used for labeling the compounds.    
 A compound is considered active if **`Selected Property > 50`**. This value can be adjusted with the slider below._''')
 
         # Create a sidebar slider to filter property
