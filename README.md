@@ -4,7 +4,7 @@ A straightforward App that combines experimental activity data, molecular descri
 learning for classifying potential drug candidates against the SARS-CoV-2 Main Protease (MPro).
 
 ## Running online
-Feel free to run the online app in the Streamlit servers by clicking the link on the repo description.
+Feel free to run the online app in the Streamlit servers by clicking the [link on the repo description](https://caiocrocha-sarscov2drughunter-streamlit-covid-view-pgox0i.streamlit.app/).
 
 ## Running locally
 ### Installation
